@@ -176,7 +176,7 @@ our %font_map = (Courier => {Bold => 'Courier-Bold',
 		 },
 		 Webdings => {},
 		 Wingdings => {},
-		 ZapfDingbats => {},
+		 Zapfdingbats => {},
     );
 
 sub new {
@@ -202,6 +202,11 @@ sub new {
 
 	# font cache
 	$self->{_font_cache} = {};
+
+    # encoding
+    if (! $self->{encoding}) {
+        $self->{encoding} = 'latin1';
+    }
 
 	# page size
 	if ($self->{page_size}) {
@@ -529,41 +534,91 @@ Returns PDF::API2 font object for font NAME, WEIGHT and STYLE are optional.
 	
 sub font {
 	my ($self, $name, $weight, $style) = @_;
-	my ($key, $obj);
+	my ($key, $obj, $type, $norm_name, $norm_weight, $norm_style);
 
-    if ($weight eq 'normal') {
+    # try to guess font type
+    $norm_name = ucfirst(lc($name));
+
+    if ($style) {
+        $norm_style = ucfirst(lc($style));
+    }
+    else {
+        $style = '';
+    }
+
+    if (exists $font_map{$norm_name}) {
+        $type = 'core';
+    }
+    else {
+        $type = 'truetype';
+    }
+
+    if (! defined $weight || $weight eq 'normal') {
         # default font weight
-        $weight = '';
+        $norm_weight = '';
+    }
+    else {
+        $norm_weight = ucfirst(lc($weight));
     }
 
 	# determine font name from supplied name and optional weight
-	if ($weight) {
-	    if ($style) {
-            $key = "$name-$weight$style";
+    if ($type eq 'core') {
+        if ($norm_weight) {
+            if ($style) {
+                $key = "$norm_name-$norm_weight$norm_style";
+            }
+            else {
+                $key = "$norm_name-$norm_weight";
+            }
+        }
+        elsif ($norm_style) {
+            if (exists $font_map{$norm_name}->{$norm_style}) {
+                $key = $font_map{$norm_name}->{$norm_style};
+            }
+            else {
+                $key = "$norm_name-$norm_style";
+            }
         }
         else {
-            $key = "$name-$weight";
+            $key = $norm_name;
         }
 	}
-	elsif ($style) {
-	    if (exists $font_map{$name}->{$style}) {
-            $key = $font_map{$name}->{$style};
-	    }
-	    else {
-            $key = "$name-$style";
-	    }
-	}
 	else {
-		$key = $name;
+        if ($norm_weight) {
+            if ($style) {
+                $key = "$name-$norm_weight$norm_style";
+            }
+            else {
+                $key = "$name-$norm_weight";
+            }
+        }
+        elsif ($norm_style) {
+            $key = "$name-$norm_style";
+        }
+        else {
+            $key = $name;
+        }
 	}
-		
+
 	if (exists $self->{_font_cache}->{$key}) {
 		# return font object from cache
 		return $self->{_font_cache}->{$key};
 	}
 
-	# create new font object
-	$obj = $self->{pdf}->corefont($key, -encoding => 'latin1');
+	# create new font objectif
+    if ($type eq 'core') {
+        $obj = $self->{pdf}->corefont($key, -encode => $self->{encoding});
+    }
+    else {
+        # we are assume that this is a TT font
+        eval {
+            $obj =  $self->{pdf}->ttfont("$key.ttf");
+        };
+
+        if ($@) {
+            die "Font not found: $key.ttf";
+        }
+    }
 
 	$self->{_font_cache}->{$key} = $obj;
 	
