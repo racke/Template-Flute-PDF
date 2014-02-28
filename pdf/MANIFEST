@@ -20,6 +20,7 @@ t/images.t
 t/i-tag.t
 t/locate_images.t
 t/manifest.t
+t/output.t
 t/pod.t
 t/pod-coverage.t
 t/values.t

@@ -6,3 +6,4 @@ Makefile
 Makefile.old
 MYMETA.*
 .*
+pdf/t/output/*
