@@ -179,6 +179,23 @@ our %font_map = (Courier => {Bold => 'Courier-Bold',
 		 Zapfdingbats => {},
     );
 
+# font names to glyph ranges for CJK support
+our %cjk_map = (
+	'Song' => [[0x3000,0x9fff],[0xff00, 0xffef]],
+	'Ming' => [[0x3000,0x9fff],[0xff00, 0xffef]],
+	'Kozmin' => [[0xff00, 0xffef]],
+	'Kozgo' => [[0xff00, 0xffef]],
+	'Myungjo' =>  [[0x3000,0x9fff],[0xff00, 0xffef]],
+
+);
+
+our @cjk_priority = reverse qw(Song Ming Kozmin Kozgo Myungjo);
+
+# utility function to return whether a string contains CJK chars; hard-coded for now, could build this up dynamically
+sub contains_cjk_chars {
+	return $_[0] =~ /[\x{3000}-\x{9fff}\x{ff00}-\x{ffef}]/m;
+}
+
 sub new {
 	my ($proto, @args) = @_;
 	my ($class, $self);
@@ -549,6 +566,9 @@ sub font {
     if (exists $font_map{$norm_name}) {
         $type = 'core';
     }
+    elsif (exists $cjk_map{$norm_name}) {
+        $type = 'cjk';
+    }
     else {
         $type = 'truetype';
     }
@@ -609,6 +629,9 @@ sub font {
     if ($type eq 'core') {
         $obj = $self->{pdf}->corefont($key, -encode => $self->{encoding});
     }
+    elsif ($type eq 'cjk') {
+        $obj = $self->{pdf}->cjkfont($key, -encode => $self->{encoding});
+    }
     else {
         # we are assume that this is a TT font
         eval {
@@ -620,9 +643,27 @@ sub font {
         }
     }
 
+    # add glyph coverage for CJK regardless of font chosen, override the specific font
+    my @cjk_fonts = $self->_cjkfonts;
+    $obj = $self->{pdf}->unifont( { font => $obj }, @cjk_fonts, -encode => $self->{encoding} );
+
 	$self->{_font_cache}->{$key} = $obj;
 	
 	return $obj;
+}
+
+
+sub _cjkfonts {
+    my $self = shift;
+
+    return @{
+        $self->{_cjkfonts} //= [ map {
+            {
+                font => ( $self->{_font_cache}->{$_} = $self->{pdf}->cjkfont($_, -encode => $self->{encoding}) ),
+                codes => $cjk_map{$_},
+            }
+        } @cjk_priority ]
+    }
 }
 
 =head2 text_filter TEXT
