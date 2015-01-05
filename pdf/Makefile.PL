@@ -18,7 +18,8 @@ WriteMakefile(
     PREREQ_PM => {
         'Template::Flute' => 0.0025,
         'Template::Flute::Style::CSS' => 0.0030,
-	'PDF::API2' => 0,
+        # prevent using buggy release 2.022
+        'PDF::API2' => '2.023',
         'Image::Size' => 0,
     },
     META_MERGE        => {
