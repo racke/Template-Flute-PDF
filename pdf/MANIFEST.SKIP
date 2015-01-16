@@ -1,3 +1,6 @@
 \.bak$
 \.old$
 ^examples
+t/output/.*
+^Makefile$
+MYMETA.*
